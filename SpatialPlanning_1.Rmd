@@ -1,0 +1,61 @@
+---
+title: "Spatial Planning"
+author: "Claire Powers"
+date: "May 23, 2018"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1. What is the spatial distribution of global, fishing, and land-based threats in the CA Current?
+
+2. (for week 2 of the lab) Where were MPAs placed? Which threats do they address?
+
+
+- Using geotiff data (.tif)
+- Stores Metadata or attributes about the file as        embedded tif tags
+
+```{r packages}
+
+library(raster)       
+#Main raster library with nearly all functions used in this analysis
+library(rgdal)        
+#Spatial library - most functions used from rgdal are for vectors (shapefiles)
+library(rasterVis)    
+#Useful for raster visualizations
+library(maps)         
+#Has a database of maps. I use this to add a map to my raster to visualize land boundaries
+library(rgeos)        
+#Need this library for topology operations on geometries
+library(dplyr)        
+#NOT spatial - this is a data wrangling library
+library(RColorBrewer)
+library(wesanderson)
+```
+
+```{r settings}
+
+cols = rev(colorRampPalette(brewer.pal(11, 'Spectral'))(255))
+par(mar=c(2,2,1,1)) 
+```
+
+```{r data}
+
+all_threats <- raster("R:/Spring2018/ESM270/Week8_R_hotspots/Threats_data/full_modelnv.tif")
+
+#pal <- wes_palette(6, name = "Zissou1", type = "continuous")
+
+```
+
+```{r}
+plot(all_threats,ext=extent(-125,-117,32,35), col = cols, main = "Cumulative Threats")
+map('world',fill=T,add=T,col="gray70")
+zoom(all_threats, col=cols)
+```
+
+
