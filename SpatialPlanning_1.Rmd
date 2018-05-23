@@ -4,21 +4,22 @@ author: "Claire Powers"
 date: "May 23, 2018"
 output:
   html_document: default
-  pdf_document: default
-  word_document: default
+  toc: true
+  toc_depth: 2
+  toc_float: true
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-1. What is the spatial distribution of global, fishing, and land-based threats in the CA Current?
+##1. What is the spatial distribution of global, fishing, and land-based threats in the CA Current?
 
 2. (for week 2 of the lab) Where were MPAs placed? Which threats do they address?
 
 
 - Using geotiff data (.tif)
-- Stores Metadata or attributes about the file as        embedded tif tags
+- Stores Metadata or attributes about the file as embedded tif tags
 
 ```{r packages}
 
@@ -39,23 +40,136 @@ library(wesanderson)
 ```
 
 ```{r settings}
-
 cols = rev(colorRampPalette(brewer.pal(11, 'Spectral'))(255))
 par(mar=c(2,2,1,1)) 
 ```
 
 ```{r data}
-
 all_threats <- raster("R:/Spring2018/ESM270/Week8_R_hotspots/Threats_data/full_modelnv.tif")
 
-#pal <- wes_palette(6, name = "Zissou1", type = "continuous")
-
+pal <- wes_palette(11, name = "Zissou1", type = "continuous")
 ```
 
 ```{r}
-plot(all_threats,ext=extent(-125,-117,32,35), col = cols, main = "Cumulative Threats")
-map('world',fill=T,add=T,col="gray70")
-zoom(all_threats, col=cols)
+plot(all_threats,col = pal, ext = extent(-124.5,-121,37,39),main = "Bay Area Threats")
+#map('world',fill=T,add=T,col="gray70")
+
+##zoom(all_threats, col=cols)
+#doesn't work in markdown. 
+#Zoom function error message
 ```
 
+```{r raster_attributes}
+all_threats
+
+#Minimum cell value
+cellStats(all_threats,min)
+########Not getting 'values' row as shown in example code. 
+
+#hist(all_threats)
+#cellStats(all_threats,mean)
+cellStats(all_threats,sd)
+```
+
+Part 3. Raster Calculations
+
+Crop
+```{r crop}
+
+all_spp <- raster("R:/Spring2018/ESM270/Week8_R_hotspots/ca_curr_sp_rich.tif")
+all_spp
+
+plot(all_spp, col=pal)
+map('world',fill=T,add=T,col="gray70")
+
+#crops the extent of the threats data set to the extent of the species data set. 
+threats_crop <- crop(all_threats, all_spp)
+```
+
+Resample
+```{r resample}
+spp_res <- resample(all_spp,threats_crop,method='ngb',progress='text')
+#Nearest neighbor 
+```
+
+Raster Stack - 
+```{r stack}
+##Stack to line up rasters.
+spp_threat_stack <- stack(threats_crop,spp_res)
+plot(spp_threat_stack,col=pal)
+```
+Reclassify Threats
+```{r reclassify}
+# Histogram of species raster cell values.
+hist(threats_crop,main="Threats Raster Values")
+
+# Reclassify all negatives and zeros to equal NA
+threats_NA <- reclassify(threats_crop,rcl=c(-Inf,0,NA))
+hist(threats_crop)
+
+# Reclassify species
+# Find value of 80th percentile
+threats_cutoff <- quantile(threats_NA,0.8)
+threats_cutoff
+
+# Find maximum value
+thr_maxVal <- cellStats(threats_NA,max)
+thr_maxVal
+
+# Reclassification matrix
+# Matric saying: Make everything below 80% 0, and everything above 80% 1
+rcl_mat_threats<- c(-Inf,threats_cutoff,0,threats_cutoff,thr_maxVal,1)
+
+# Assign matrix values to spp data set
+threat_binary <- reclassify(threats_crop,rcl=rcl_mat_threats)
+
+# Change Color Scheme
+pal2 <- c("white","forestgreen")
+
+plot(threat_binary,col=pal2,legend=F,main="Top 20% of Threats")
+map('world',fill=T,add=T,col='gray')
+```
+
+
+Reclassify species
+```{r threats}
+# Histogram of species raster cell values.
+hist(spp_res,main="Threats Raster Values")
+
+# Reclassify all negatives and zeros to equal NA
+spp_res <- reclassify(spp_res,rcl=c(-Inf,0,NA))
+hist(spp_res)
+
+# Reclassify species
+# Find value of 80th percentile
+spp_cutoff <- quantile(spp_res,0.8)
+spp_cutoff
+
+# Find maximum value
+spp_maxVal <- cellStats(spp_res,max)
+spp_maxVal
+
+# Reclassification matrix
+# Matric saying: Make everything below 80% 0, and everything above 80% 1
+rcl_mat<- c(-Inf,spp_cutoff,0,spp_cutoff,spp_maxVal,1)
+
+# Assign matrix values to spp data set
+spp_binary <- reclassify(spp_res,rcl=rcl_mat)
+
+# Change Color Scheme
+pal2 <- c("white","forestgreen")
+
+plot(spp_binary,col=pal2,legend=F,main="Top 20% of Species Richness")
+map('world',fill=T,add=T,col='gray')
+```
+
+
+```{r hotspots}
+hotspots <- overlay(spp_binary,threat_binary,fun=function(x,y){x+y})
+
+brks_hotspots <- seq(0,3,length.out=4) 
+
+hotspot_cols <- c("white","lightblue","firebrick") 
+plot(hotspots,col=hotspot_cols,legend=F,main="Hotspots");map('world',fill=T,add=T,col='gray80')
+```
 
